@@ -26,7 +26,7 @@ namespace WeddingDateManager
         private bool canModifyDate = false;
 
         public WeddingMenu(IModHelper helper)
-            : base(Game1.viewport.Width / 2 - 400, Game1.viewport.Height / 2 - 300, 800, 600, true)
+            : base(Game1.viewport.Width / 2 - 400, Game1.viewport.Height / 2 - 300, 800, 600, false)
         {
             this.Helper = helper;
             this.IdentifyTarget(); // Acha o casamento e define permissões
@@ -92,22 +92,22 @@ namespace WeddingDateManager
                 // Botão Esquerdo (Adiantar / Sooner) - Seta Esquerda
                 // Usando sourceRect (352, 495, 12, 11) que é a seta para esquerda nativa
                 this.btnAdvance = new ClickableTextureComponent(
-                    new Rectangle(centerX - 96, centerY + 32, 48, 44),
+                    new Rectangle(centerX - 96, centerY + 96, 48, 44), // Descido para +96
                     Game1.mouseCursors,
                     new Rectangle(352, 495, 12, 11),
                     4f
                 )
-                { myID = 101, label = "Adiantar" };
+                { myID = 101, label = "" }; // Label vazio para evitar duplicata automática
 
                 // Botão Direito (Adiar / Later) - Seta Direita
                 // Usando sourceRect (365, 495, 12, 11) que é a seta para direita nativa
                 this.btnPostpone = new ClickableTextureComponent(
-                    new Rectangle(centerX + 48, centerY + 32, 48, 44),
+                    new Rectangle(centerX + 48, centerY + 96, 48, 44), // Descido para +96
                     Game1.mouseCursors,
                     new Rectangle(365, 495, 12, 11),
                     4f
                 )
-                { myID = 100, label = "Adiar" };
+                { myID = 100, label = "" }; // Label vazio para evitar duplicata automática
             }
 
             this.btnClose = new ClickableTextureComponent(
@@ -212,19 +212,20 @@ namespace WeddingDateManager
             Game1.drawDialogueBox(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height, false, true);
 
             // Título com Scroll Background
-            SpriteText.drawStringWithScrollBackground(b, "Gerenciar Casamento",
-                this.xPositionOnScreen + (this.width / 2),
-                this.yPositionOnScreen - 20);
+            string title = "Gerenciar Casamento";
+            int titleWidth = SpriteText.getWidthOfString(title);
+            int titleX = this.xPositionOnScreen + (this.width / 2) - (titleWidth / 2);
+
+            SpriteText.drawStringWithScrollBackground(b, title, titleX, this.yPositionOnScreen - 20);
 
             // Subtítulo: Quem está casando?
             if (this.engagedPlayer != null)
             {
                 string coupleText = $"Casamento de: {this.engagedPlayer.Name} & {this.spouseName}";
-                // Usando fonte de diálogo para maior destaque
                 Vector2 coupleSize = Game1.dialogueFont.MeasureString(coupleText);
                 Vector2 couplePos = new Vector2(
                     this.xPositionOnScreen + (this.width / 2) - (coupleSize.X / 2),
-                    this.yPositionOnScreen + 128 // Descendo mais um pouco
+                    this.yPositionOnScreen + 128
                 );
                 b.DrawString(Game1.dialogueFont, coupleText, couplePos, Game1.textColor);
             }
@@ -244,7 +245,6 @@ namespace WeddingDateManager
             // Botões (só desenha se existirem)
             if (this.canModifyDate && this.btnPostpone != null && this.btnAdvance != null)
             {
-                // Desenha os botões normalmente (sem flip manual, pois agora usamos os sourceRects corretos)
                 this.btnPostpone.draw(b);
                 this.btnAdvance.draw(b);
 
@@ -252,7 +252,7 @@ namespace WeddingDateManager
                 DrawButtonLabel(b, this.btnAdvance, "Adiantar");
                 DrawButtonLabel(b, this.btnPostpone, "Adiar");
 
-                // Tooltips (mantidos por garantia)
+                // Tooltips
                 if (this.btnPostpone.containsPoint(Game1.getMouseX(), Game1.getMouseY()))
                     IClickableMenu.drawHoverText(b, "+1 Dia", Game1.smallFont);
 
@@ -280,7 +280,7 @@ namespace WeddingDateManager
             Vector2 labelSize = Game1.smallFont.MeasureString(label);
             Vector2 labelPos = new Vector2(
                 btn.bounds.X + (btn.bounds.Width / 2) - (labelSize.X / 2),
-                btn.bounds.Y - labelSize.Y - 4 // 4 pixels acima do botão
+                btn.bounds.Y - labelSize.Y - 8 // Subido um pouco mais (margem de 8px)
             );
             b.DrawString(Game1.smallFont, label, labelPos, Game1.textColor);
         }
