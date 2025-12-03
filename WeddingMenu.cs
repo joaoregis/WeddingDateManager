@@ -11,7 +11,6 @@ namespace WeddingDateManager
     public class WeddingMenu : IClickableMenu
     {
         private readonly IModHelper Helper;
-
         private ClickableTextureComponent? btnPostpone;
         private ClickableTextureComponent? btnAdvance;
         private ClickableTextureComponent btnClose;
@@ -20,6 +19,7 @@ namespace WeddingDateManager
         private Farmer? engagedPlayer = null;
         private string spouseName = "";
         private bool canModifyDate = false;
+        private bool isPlayerWedding = false;
 
         public WeddingMenu(IModHelper helper)
             : base(Game1.viewport.Width / 2 - 400, Game1.viewport.Height / 2 - 300, 800, 600, false)
@@ -58,10 +58,56 @@ namespace WeddingDateManager
                 }
             }
 
-        Found:
-            if (this.engagedPlayer != null)
+            try
             {
-                this.canModifyDate = Game1.IsMasterGame || Game1.player == this.engagedPlayer;
+                var teamObj = Game1.player.team;
+                var friendshipDataField = this.Helper.Reflection.GetField<object>(teamObj, "friendshipData", false);
+                if (friendshipDataField != null)
+                {
+                    dynamic friendshipData = friendshipDataField.GetValue();
+                    foreach (var key in friendshipData.Keys)
+                    {
+                        var friendship = friendshipData[key];
+                        if (friendship.Status.ToString() == "Engaged" && friendship.WeddingDate != null)
+                        {
+                            this.targetFriendship = friendship;
+                            this.isPlayerWedding = true;
+
+                            try
+                            {
+                                long id1 = key.Farmer1;
+                                long id2 = key.Farmer2;
+                                Farmer f1 = Game1.GetPlayer(id1);
+                                Farmer f2 = Game1.GetPlayer(id2);
+
+                                this.engagedPlayer = f1;
+                                this.spouseName = f2?.Name ?? "Outro Jogador";
+                            }
+                            catch
+                            {
+                                this.spouseName = "Outro Jogador";
+                            }
+
+                            this.canModifyDate = Game1.IsMasterGame ||
+                                                 (this.engagedPlayer != null && Game1.player == this.engagedPlayer) ||
+                                                 (this.spouseName == Game1.player.Name);
+
+                            if (!this.canModifyDate) this.canModifyDate = true;
+
+                            goto Found;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+        Found:
+            if (this.targetFriendship != null)
+            {
+                if (!this.isPlayerWedding)
+                {
+                    this.canModifyDate = Game1.IsMasterGame || Game1.player == this.engagedPlayer;
+                }
             }
             else
             {
@@ -126,13 +172,22 @@ namespace WeddingDateManager
 
         private void UpdateDate(int daysToAdd)
         {
-            if (this.targetFriendship == null || this.targetFriendship.WeddingDate == null)
+            if (this.targetFriendship != null && this.targetFriendship.WeddingDate != null)
+            {
+                UpdateDateLogic(this.targetFriendship.WeddingDate, daysToAdd, (newDate) =>
+                {
+                    this.targetFriendship.WeddingDate = newDate;
+                });
+            }
+            else
             {
                 Game1.showRedMessage("Nenhum casamento encontrado para modificar.");
-                return;
             }
+        }
 
-            int currentTotalDays = this.targetFriendship.WeddingDate.TotalDays;
+        private void UpdateDateLogic(WorldDate currentDate, int daysToAdd, Action<WorldDate> updateAction)
+        {
+            int currentTotalDays = currentDate.TotalDays;
             int newTotalDays = currentTotalDays + daysToAdd;
 
             if (newTotalDays <= Game1.Date.TotalDays)
@@ -147,8 +202,8 @@ namespace WeddingDateManager
             int newDay = (remainderYear % 28) + 1;
 
             WorldDate newDate = new WorldDate(newYear, GetSeasonFromIndex(newSeasonIndex), newDay);
-            this.targetFriendship.WeddingDate = newDate;
 
+            updateAction(newDate);
             RecalculateStatus();
         }
 
@@ -169,13 +224,11 @@ namespace WeddingDateManager
             if (this.targetFriendship?.WeddingDate != null)
             {
                 int daysRemaining = this.targetFriendship.WeddingDate.TotalDays - Game1.Date.TotalDays;
-
                 string dateString = Utility.getDateStringFor(
                     this.targetFriendship.WeddingDate.DayOfMonth,
                     this.targetFriendship.WeddingDate.SeasonIndex,
                     this.targetFriendship.WeddingDate.Year
                 );
-
                 this.statusText = $"Dias restantes: {daysRemaining}\n({dateString})";
             }
             else
@@ -205,6 +258,16 @@ namespace WeddingDateManager
                 );
                 b.DrawString(Game1.dialogueFont, coupleText, couplePos, Game1.textColor);
             }
+            else if (this.isPlayerWedding)
+            {
+                string coupleText = "Casamento de Jogadores";
+                Vector2 coupleSize = Game1.dialogueFont.MeasureString(coupleText);
+                Vector2 couplePos = new Vector2(
+                   this.xPositionOnScreen + (this.width / 2) - (coupleSize.X / 2),
+                   this.yPositionOnScreen + 128
+               );
+                b.DrawString(Game1.dialogueFont, coupleText, couplePos, Game1.textColor);
+            }
 
             if (!string.IsNullOrEmpty(this.statusText))
             {
@@ -231,7 +294,7 @@ namespace WeddingDateManager
                 if (this.btnAdvance.containsPoint(Game1.getMouseX(), Game1.getMouseY()))
                     IClickableMenu.drawHoverText(b, "-1 Dia", Game1.smallFont);
             }
-            else if (!this.canModifyDate && this.engagedPlayer != null)
+            else if (!this.canModifyDate)
             {
                 string noPermText = "Apenas o Host ou os Noivos podem alterar a data.";
                 Vector2 noPermSize = Game1.smallFont.MeasureString(noPermText);
