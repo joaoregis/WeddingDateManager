@@ -1,0 +1,10 @@
+{
+  "Name": "Wedding Date Manager",
+  "Author": "Polaco",
+  "Version": "0.0.1",
+  "Description": "Manages wedding dates in Stardew Valley.",
+  "UniqueID": "Polaco.WeddingDateManager",
+  "EntryDll": "WeddingDateManager.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
